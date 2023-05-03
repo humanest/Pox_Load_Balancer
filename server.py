@@ -60,7 +60,8 @@ class Server():
                     time_usage = int(request_info[1])
                     request_id = request_info[2]
                     print("Got request id: {}, added to queue".format(request_id))
-                    request = Request(client, cpu_usage, time_usage, request_id)
+                    request = Request(client, cpu_usage,
+                                      time_usage, request_id)
                     self.request_queue.put(request)
                 else:
                     raise NameError('Client disconnected')
@@ -77,7 +78,8 @@ class Server():
         request.client.send(reply.encode())
         with self.cpu_usage.get_lock():
             self.cpu_usage.value -= request.cpu_usage
-        print("Request {} finished, reply sent, current cpu usage: {}%".format(request.request_id, self.cpu_usage.value))
+        print("Request {} finished, reply sent, current cpu usage: {}%".format(
+            request.request_id, self.cpu_usage.value))
         with self.cpu_condition:
             self.cpu_condition.notify_all()
 
@@ -89,7 +91,8 @@ class Server():
                 print("Insufficient cpu usage: {}%".format(self.cpu_usage.value))
                 with self.cpu_condition:
                     self.cpu_condition.wait()
-            print("Ready to handle request id: {}, current cpu usage: {}%".format(request.request_id, self.cpu_usage.value))
+            print("Ready to handle request id: {}, current cpu usage: {}%".format(
+                request.request_id, self.cpu_usage.value))
             with self.cpu_usage.get_lock():
                 self.cpu_usage.value += request.cpu_usage
             multiprocessing.Process(target=self.handle_request,

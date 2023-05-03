@@ -31,7 +31,8 @@ class Client():
         try:
             self.socket.connect(destination)
         except:
-            print("Client {} failed to connect: {}".format(self.client_name, str(destination)))
+            print("Client {} failed to connect: {}".format(
+                self.client_name, str(destination)))
             return False
         for cpu_usage, time_usage, request_id in requests:
             message = "{}, {}, {}".format(cpu_usage, time_usage, request_id)
@@ -40,8 +41,10 @@ class Client():
                 print("Client {} sent {}.".format(self.client_name, message))
                 reply = self.socket.recv(1024).decode()
                 if not reply:
-                    raise TypeError("No reply from {} for {}".format(str(destination), self.client_name))
-                print("Client {} received reply: {}".format(self.client_name, reply))
+                    raise TypeError("No reply from {} for {}".format(
+                        str(destination), self.client_name))
+                print("Client {} received reply: {}".format(
+                    self.client_name, reply))
             except Exception as e:
                 print(e)
                 self.socket.close()
@@ -65,9 +68,11 @@ class Client():
         requests = self.generate_requests()
         self.send_requests(self.server, requests)
 
+
 def run_a_client(name="client"):
     client = Client(name)
     client.run()
+
 
 if __name__ == '__main__':
     for i in range(10):
