@@ -1,4 +1,5 @@
-import time
+import argparse
+import logging
 
 from collections import OrderedDict
 
@@ -36,3 +37,32 @@ class Request():
         for key, value in time_info.items():
             output += "{}:{}ms; ".format(key, int(value * 1e3))
         return output
+
+
+class ClientReport():
+    def __init__(self, client_id, report_type, request_log):
+        self.client_id = client_id
+        self.report_type = report_type
+        self.request_log = request_log
+
+class ServerStatus():
+    def __init__(self, cpu_usage, is_idle, is_unavailable, timestamp):
+        self.cpu_usage = cpu_usage
+        self.is_idle = is_idle
+        self.is_unavailable = is_unavailable
+        self.timestamp = timestamp
+
+class ServerReport():
+    def __init__(self, server_id, status_log):
+        self.server_id = server_id
+        self.status_log = status_log
+
+
+def set_up_log():
+    parser = argparse.ArgumentParser()
+    parser.add_argument( '-log',
+                        '--loglevel',
+                        default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning' )
+    args = parser.parse_args()
+    logging.basicConfig( level=args.loglevel.upper() )
