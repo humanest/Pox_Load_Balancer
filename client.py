@@ -1,9 +1,11 @@
+import argparse
+import logging
 import multiprocessing
 import random
 import socket
 
 REQUEST_CPU_USAGE_RANGE = [20, 40]  # In percentage
-REQUEST_TIME_USAGE_RANGE = [50, 100]  # In ms
+REQUEST_TIME_USAGE_RANGE = [100, 200]  # In ms
 REQUEST_SIZE = 10
 SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
@@ -31,22 +33,22 @@ class Client():
         try:
             self.socket.connect(destination)
         except:
-            print("Client {} failed to connect: {}".format(
+            logging.error("Client {} failed to connect: {}".format(
                 self.client_name, str(destination)))
             return False
         for cpu_usage, time_usage, request_id in requests:
             message = "{}, {}, {}".format(cpu_usage, time_usage, request_id)
             try:
                 self.socket.send(message.encode())
-                print("Client {} sent {}.".format(self.client_name, message))
+                logging.info("Client {} sent {}.".format(self.client_name, message))
                 reply = self.socket.recv(1024).decode()
                 if not reply:
                     raise TypeError("No reply from {} for {}".format(
                         str(destination), self.client_name))
-                print("Client {} received reply: {}".format(
+                logging.info("Client {} received reply: {}".format(
                     self.client_name, reply))
             except Exception as e:
-                print(e)
+                logging.error(e)
                 self.socket.close()
                 return False
         self.socket.close()
@@ -74,7 +76,18 @@ def run_a_client(name="client"):
     client.run()
 
 
+def set_up_log():
+    parser = argparse.ArgumentParser()
+    parser.add_argument( '-log',
+                        '--loglevel',
+                        default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning' )
+    args = parser.parse_args()
+    logging.basicConfig( level=args.loglevel.upper() )
+
+
 if __name__ == '__main__':
+    set_up_log()
     for i in range(10):
         name = str(chr(65+i))
         multiprocessing.Process(target=run_a_client, args=(name,)).start()

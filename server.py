@@ -1,4 +1,6 @@
+import argparse
 import collections
+import logging
 import multiprocessing
 import random
 import socket
@@ -44,13 +46,13 @@ class Server():
         self.socket.listen(self.max_connection_number)
         while True:
             client, address = self.socket.accept()
-            print("Got connection from: {}".format(address))
+            logging.info("Got connection from: {}".format(address))
             client.settimeout(60)
             multiprocessing.Process(target=self.serve_client,
                                     args=(client, address)).start()
 
     def serve_client(self, client, address):
-        print("Start serving client: {}".format(address))
+        logging.info("Start serving client: {}".format(address))
         while True:
             try:
                 request_data = client.recv(1024).decode()
@@ -59,39 +61,40 @@ class Server():
                     cpu_usage = int(request_info[0])
                     time_usage = int(request_info[1])
                     request_id = request_info[2]
-                    print("Got request id: {}, added to queue".format(request_id))
+                    logging.info("Got request id: {}, added to queue".format(request_id))
                     request = Request(client, cpu_usage,
                                       time_usage, request_id)
                     self.request_queue.put(request)
                 else:
-                    raise NameError('Client disconnected')
+                    logging.info("Client {} disconnected".format(address))
+                    break
             except Exception as e:
-                print("ERROR:", e)
+                logging.error( e)
                 client.close()
                 return False
 
     def handle_request(self, request):
-        print("Handling request {}...".format(request.request_id))
+        logging.info("Handling request {}...".format(request.request_id))
         time_in_sec = float(request.time_usage) * 1e-3
         time.sleep(time_in_sec)
         reply = "Request {} finished!".format(request.request_id)
         request.client.send(reply.encode())
         with self.cpu_usage.get_lock():
             self.cpu_usage.value -= request.cpu_usage
-        print("Request {} finished, reply sent, current cpu usage: {}%".format(
+        logging.info("Request {} finished, reply sent, current cpu usage: {}%".format(
             request.request_id, self.cpu_usage.value))
         with self.cpu_condition:
             self.cpu_condition.notify_all()
 
     def handle_request_in_queue(self):
-        print("Start handling request in queue")
+        logging.info("Start handling request in queue")
         while True:
             request = self.request_queue.get()
             while self.cpu_usage.value + request.cpu_usage > self.max_cpu_resource:
-                print("Insufficient cpu usage: {}%".format(self.cpu_usage.value))
+                logging.warning("Insufficient cpu usage: {}%".format(self.cpu_usage.value))
                 with self.cpu_condition:
                     self.cpu_condition.wait()
-            print("Ready to handle request id: {}, current cpu usage: {}%".format(
+            logging.info("Ready to handle request id: {}, current cpu usage: {}%".format(
                 request.request_id, self.cpu_usage.value))
             with self.cpu_usage.get_lock():
                 self.cpu_usage.value += request.cpu_usage
@@ -103,6 +106,17 @@ class Server():
         self.wait_for_client()
 
 
+def set_up_log():
+    parser = argparse.ArgumentParser()
+    parser.add_argument( '-log',
+                        '--loglevel',
+                        default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning' )
+    args = parser.parse_args()
+    logging.basicConfig( level=args.loglevel.upper() )
+
+
 if __name__ == '__main__':
+    set_up_log()
     server = Server()
     server.run()
