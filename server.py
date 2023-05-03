@@ -3,23 +3,17 @@ import collections
 import logging
 import multiprocessing
 import random
+import pickle
 import socket
 import time
 
+from commonData import Request
 
 CPU_RESOURCE = 100  # In percentage
 CPU_IDLE_USAGE = 0  # In percentage
 MAX_CONNECTION_NUMBER = 100
 SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
-
-
-class Request():
-    def __init__(self, client, cpu_usage, time_usage, request_id):
-        self.client = client
-        self.cpu_usage = cpu_usage
-        self.time_usage = time_usage
-        self.request_id = request_id
 
 
 class Server():
@@ -55,16 +49,12 @@ class Server():
         logging.info("Start serving client: {}".format(address))
         while True:
             try:
-                request_data = client.recv(1024).decode()
+                request_data = client.recv(1024)
                 if request_data:
-                    request_info = str(request_data).split(",")
-                    cpu_usage = int(request_info[0])
-                    time_usage = int(request_info[1])
-                    request_id = request_info[2]
-                    logging.info("Got request id: {}, added to queue".format(request_id))
-                    request = Request(client, cpu_usage,
-                                      time_usage, request_id)
-                    self.request_queue.put(request)
+                    request = pickle.loads(request_data)
+                    print("Got request id: {}, added to queue".format(request.id))
+                    request.request_receive_time = time.time()
+                    self.request_queue.put((request, client))
                 else:
                     logging.info("Client {} disconnected".format(address))
                     break
@@ -73,33 +63,34 @@ class Server():
                 client.close()
                 return False
 
-    def handle_request(self, request):
-        logging.info("Handling request {}...".format(request.request_id))
+    def handle_request(self, request, client):
+        print("Handling request {}...".format(request.id))
+        request.request_process_time = time.time()
         time_in_sec = float(request.time_usage) * 1e-3
         time.sleep(time_in_sec)
-        reply = "Request {} finished!".format(request.request_id)
-        request.client.send(reply.encode())
+        request.reply_send_time = time.time()
+        client.send(pickle.dumps(request))
         with self.cpu_usage.get_lock():
             self.cpu_usage.value -= request.cpu_usage
-        logging.info("Request {} finished, reply sent, current cpu usage: {}%".format(
-            request.request_id, self.cpu_usage.value))
+        print("Request {} finished, reply sent, current cpu usage: {}%".format(
+            request.id, self.cpu_usage.value))
         with self.cpu_condition:
             self.cpu_condition.notify_all()
 
     def handle_request_in_queue(self):
         logging.info("Start handling request in queue")
         while True:
-            request = self.request_queue.get()
+            request, client = self.request_queue.get()
             while self.cpu_usage.value + request.cpu_usage > self.max_cpu_resource:
                 logging.warning("Insufficient cpu usage: {}%".format(self.cpu_usage.value))
                 with self.cpu_condition:
                     self.cpu_condition.wait()
-            logging.info("Ready to handle request id: {}, current cpu usage: {}%".format(
-                request.request_id, self.cpu_usage.value))
+            print("Ready to handle request: {}, current cpu usage: {}%".format(
+                request.info(), self.cpu_usage.value))
             with self.cpu_usage.get_lock():
                 self.cpu_usage.value += request.cpu_usage
             multiprocessing.Process(target=self.handle_request,
-                                    args=(request,)).start()
+                                    args=(request, client)).start()
 
     def run(self):
         multiprocessing.Process(target=self.handle_request_in_queue).start()

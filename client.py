@@ -3,6 +3,10 @@ import logging
 import multiprocessing
 import random
 import socket
+import time
+import pickle
+
+from commonData import Request
 
 REQUEST_CPU_USAGE_RANGE = [20, 40]  # In percentage
 REQUEST_TIME_USAGE_RANGE = [100, 200]  # In ms
@@ -22,31 +26,36 @@ class Client():
 
         self.host = socket.gethostname()
         self.ip = socket.gethostbyname(self.host)
-        self.client_name = name
+        self.client_id = name
 
         self.request_cpu_usage_range = REQUEST_CPU_USAGE_RANGE
         self.request_time_usage_range = REQUEST_TIME_USAGE_RANGE
         self.request_size = REQUEST_SIZE
-        self.request_count = 0
+        self.request_id = 0
 
     def send_requests(self, destination, requests):
         try:
             self.socket.connect(destination)
         except:
-            logging.error("Client {} failed to connect: {}".format(
-                self.client_name, str(destination)))
+            print("Client {} failed to connect: {}".format(
+                self.client_id, str(destination)))
             return False
-        for cpu_usage, time_usage, request_id in requests:
-            message = "{}, {}, {}".format(cpu_usage, time_usage, request_id)
+
+        for request in requests:
+            request.request_send_time = time.time()
+            message = pickle.dumps(request)
             try:
-                self.socket.send(message.encode())
-                logging.info("Client {} sent {}.".format(self.client_name, message))
-                reply = self.socket.recv(1024).decode()
-                if not reply:
+                self.socket.send(message)
+                print("Client {} sent {}.".format(
+                    self.client_id, request.info()))
+                request_done_data = self.socket.recv(1024)
+                if not request_done_data:
                     raise TypeError("No reply from {} for {}".format(
-                        str(destination), self.client_name))
-                logging.info("Client {} received reply: {}".format(
-                    self.client_name, reply))
+                        str(destination), self.client_id))
+                request_done = pickle.loads(request_done_data)
+                request_done.reply_receive_time = time.time()
+                print("Client {} received reply: {}, time info: {}".format(
+                    self.client_id, request_done.info(), request_done.time_info()))
             except Exception as e:
                 logging.error(e)
                 self.socket.close()
@@ -61,9 +70,9 @@ class Client():
                 self.request_cpu_usage_range[0], self.request_cpu_usage_range[1])
             time_usage = random.randint(
                 self.request_time_usage_range[0], self.request_time_usage_range[1])
-            request_id = "{}-{}".format(self.client_name, self.request_count)
-            requests.append((cpu_usage, time_usage, request_id))
-            self.request_count += 1
+            requests.append(
+                Request(self.client_id, self.request_id, cpu_usage, time_usage))
+            self.request_id += 1
         return requests
 
     def run(self):
