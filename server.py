@@ -6,7 +6,7 @@ import socket
 import time
 import traceback
 
-from commonData import Request, ServerStatus, ServerReport, set_up_log
+from commonData import SenderSocket, ServerStatus, ServerReport, set_up_log
 
 CPU_RESOURCE = 100  # In percentage
 CPU_IDLE_USAGE = 0  # In percentage
@@ -15,6 +15,8 @@ SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
 MONITOR_IP = "127.0.2.1"
 MONITOR_PORT = 6001
+CONTROLLER_IP = "10.0.1.1"
+CONTROLLER_PORT = 7000
 LOG_FREQUENCY = 10 # In ms
 LOG_BATCH = 10
 
@@ -31,16 +33,12 @@ class Server():
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.address)
 
-        self.monitor_ip = MONITOR_IP
-        self.monitor_port = MONITOR_PORT
-        self.monitor_host = socket.gethostbyname(self.monitor_ip)
-        self.monitor = (self.monitor_host, self.monitor_port)
-        self.monitor_socket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM)  # Use Internet, TCP
-        self.monitor_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.monitor_socket = SenderSocket(MONITOR_IP, MONITOR_PORT, "{}-monitor".format(self.ip))
+        self.controller_socket = SenderSocket(CONTROLLER_IP, CONTROLLER_PORT, "{}-controller".format(self.ip))
         self.status_log = []
         self.log_frequency = LOG_FREQUENCY
         self.log_batch = LOG_BATCH
+
 
         self.max_cpu_resource = CPU_RESOURCE
         self.max_connection_number = MAX_CONNECTION_NUMBER
@@ -109,13 +107,10 @@ class Server():
                                     args=(request, client)).start()
     
     def generate_log_and_send(self):
-        try:
-            self.monitor_socket.connect(self.monitor)
-        except:
-            logging.error("Client {} failed to connect monitor: {}".format(
-                self.client_id, str(self.monitor)))
-            logging.error(traceback.format_exc())
-            return False
+        listener_sockets = []
+        for listener_socket in (self.monitor_socket, self.controller_socket):
+            if listener_socket.connect():
+                listener_sockets.append(listener_socket)
 
         while True:
             current_status = self.get_current_status()
@@ -123,27 +118,10 @@ class Server():
             if len(self.status_log) >= self.log_batch:
                 server_report = ServerReport(self.server_id, self.status_log)
                 message = pickle.dumps(server_report)
-                if not self.send_message_to_monitor(message):
-                    break
+                for listener_socket in listener_sockets:
+                    listener_socket.send_and_receive(message)
                 self.status_log.clear()
             time.sleep(self.log_frequency * 1e-3)
-
-    def send_message_to_monitor(self, message):
-        try:
-            self.monitor_socket.send(message)
-            # logging.info("Server {} sent log to monitor.".format(
-            #     self.server_id))
-            reply = self.monitor_socket.recv(1024).decode()
-            if not reply:
-                raise TypeError("No reply from monitor {}".format(
-                    str(self.monitor)))
-            #logging.info("Server {} received monitor reply: {}".format(self.server_id, reply))
-        except Exception as e:
-            logging.error(e)
-            logging.error(traceback.format_exc())
-            return False
-        return True
-                
 
     def get_current_status(self):
         cpu_usage = self.cpu_usage.value
