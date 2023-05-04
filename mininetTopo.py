@@ -1,10 +1,3 @@
-'''
-Please add your name: Jiang Siyang  
-Please add your matric number: 79DEDD
-'''
-
-import os
-import sys
 import atexit
 from mininet.net import Mininet
 from mininet.log import setLogLevel, info
@@ -17,8 +10,7 @@ net = None
 
 class TreeTopo(Topo):		
     def __init__(self):
-		# Initialize topology
-            Topo.__init__(self)
+        Topo.__init__(self)
     
     def getContents(self, contents):
         hosts = contents[0]
@@ -43,6 +35,7 @@ class TreeTopo(Topo):
         # Add hosts
         for y in range(1, int(host) + 1):
             ip = '10.0.0.%d/8' % y
+            print(ip)
             self.addHost('h%d' % y, ip=ip)
 
     # Add Links
@@ -52,21 +45,6 @@ class TreeTopo(Topo):
             switch = info[1]
             bandwidth = int(info[2])
             self.addLink(host, switch)
-            
-
-
-	
-	# You can write other functions as you need.
-
-	# Add hosts
-    # > self.addHost('h%d' % [HOST NUMBER])
-
-	# Add switches
-    # > sconfig = {'dpid': "%016x" % [SWITCH NUMBER]}
-    # > self.addSwitch('s%d' % [SWITCH NUMBER], **sconfig)
-
-	# Add links
-	# > self.addLink([HOST1], [HOST2])
 
 def startNetwork():
     info('** Creating the tree network\n')
@@ -81,29 +59,16 @@ def startNetwork():
     info('** Starting the network\n')
     net.start()
 
-    # Create QoS Queues
-    # > os.system('sudo ovs-vsctl -- set Port [INTERFACE] qos=@newqos \
-    #            -- --id=@newqos create QoS type=linux-htb other-config:max-rate=[LINK SPEED] queues=0=@q0,1=@q1,2=@q2 \
-    #            -- --id=@q0 create queue other-config:max-rate=[LINK SPEED] other-config:min-rate=[LINK SPEED] \
-    #            -- --id=@q1 create queue other-config:min-rate=[X] \
-    #            -- --id=@q2 create queue other-config:max-rate=[Y]')
-
     info('** Running CLI\n')
     CLI(net)
 
 def stopNetwork():
     if net is not None:
         net.stop()
-        # Remove QoS and Queues
-        os.system('sudo ovs-vsctl --all destroy Qos')
-        os.system('sudo ovs-vsctl --all destroy Queue')
-
-
 
 if __name__ == '__main__':
     # Force cleanup on exit by registering a cleanup function
     atexit.register(stopNetwork)
-
 
     # Tell mininet to print useful information
     setLogLevel('info')
