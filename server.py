@@ -19,7 +19,7 @@ MONITOR_PORT = 6001
 CONTROLLER_IP = "10.0.1.1"
 CONTROLLER_PORT = 7000
 LOG_FREQUENCY = 10  # In ms
-LOG_BATCH = 10
+LOG_BATCH = 2
 LOG_FOLDER_PATH = "/tmp/server_status/"
 
 def get_arguments():
@@ -52,6 +52,7 @@ class Server():
         self.status_log = []
         self.log_frequency = LOG_FREQUENCY
         self.log_batch = LOG_BATCH
+        self.log_tmp_file_path = LOG_FOLDER_PATH + self.server_id + ".tmp"
         self.log_file_path = LOG_FOLDER_PATH + self.server_id
         if not os.path.exists(LOG_FOLDER_PATH):
             os.makedirs(LOG_FOLDER_PATH)
@@ -145,8 +146,9 @@ class Server():
                 message = pickle.dumps(server_report)
                 for listener_socket in listener_sockets:
                     listener_socket.send_and_receive(message)
-                with open(self.log_file_path, 'wb') as file:
+                with open(self.log_tmp_file_path, 'wb') as file:
                     pickle.dump(server_report, file)
+                os.replace(self.log_tmp_file_path, self.log_file_path)
                 self.status_log.clear()
             time.sleep(self.log_frequency * 1e-3)
 

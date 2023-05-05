@@ -15,8 +15,8 @@ MAX_CONNECTION_NUMBER = 100
 MONITOR_IP = "127.0.2.1"
 MONITOR_CLIENT_PORT = 6000
 MONITOR_SERVER_PORT = 6001
-LOG_START_PERCENTILE = 0.2
-LOG_END_PERCENTILE = 0.8
+LOG_START_PERCENTILE = 0.3
+LOG_END_PERCENTILE = 0.7
 REPORT_FILE_PATH = '/tmp/server_status/report.txt'
 
 
@@ -83,8 +83,10 @@ class Monitor():
         self.listening_time_range_factor = [
             LOG_START_PERCENTILE, LOG_END_PERCENTILE]
         self.active_client_num = 0
+        self.count_lock = threading.Lock()
         self.client_log = {}
         self.server_log = {}
+
 
         self.results = []
 
@@ -111,7 +113,7 @@ class Monitor():
                 if client_report_data:
                     request = pickle.loads(client_report_data)
                     client_id = request.client_id
-                    logging.info("Receive report from {}, report id: {}".format(client_id, request.request_id))
+                    logging.debug("Receive report from {}, report id: {}".format(client_id, request.request_id))
                     if client_id not in self.client_log:
                         self.client_log[client_id] = []
                     self.client_log[client_id].append(request)
@@ -119,28 +121,35 @@ class Monitor():
                         client_id, request.request_id)
                     client.send(reply_message.encode())
                 else:
-                    logging.info("Client {} disconnected".format(address))
+                    logging.info("Client {} disconnected.".format(address))
                     break
             except Exception as e:
                 logging.error(traceback.format_exc())
                 logging.error(e)
                 client.close()
-                self.client_out()
                 return False
         self.client_out()
 
     def client_in(self):
+        logging.info("Got new client, current num:{}".format(self.active_client_num+1))
         if self.active_client_num == 0:
             self.is_listening = True
             self.listening_time_range[0] = time.time()
+        self.count_lock.acquire()
         self.active_client_num += 1
+        self.count_lock.release()
 
     def client_out(self):
-        self.active_client_num -= 1
-        logging.error("client out current client:", self.active_client_num)
-        if self.active_client_num == 0:
-            self.listening_time_range[1] = time.time()
-            self.generate_log()
+        try:
+            self.count_lock.acquire()
+            self.active_client_num -= 1
+            self.count_lock.release()
+            logging.info("Client out current client:{}".format(self.active_client_num))
+            if self.active_client_num == 0:
+                self.listening_time_range[1] = time.time()
+                self.generate_log()
+        except:
+            logging.error(traceback.format_exc())
 
     def wait_for_server(self):
         self.server_socket.listen(self.max_connection_number)
@@ -159,7 +168,7 @@ class Monitor():
                 if server_report_data:
                     server_report = pickle.loads(server_report_data)
                     server_id = server_report.server_id
-                    logging.info("Server report from {}".format(server_id))
+                    logging.debug("Server report from {}".format(server_id))
                     if server_id not in self.server_log:
                         self.server_log[server_id] = []
                     self.server_log[server_id] += server_report.status_log
@@ -230,7 +239,7 @@ class Monitor():
             self.results.append(stats.get_info())
         server_num = len(self.server_log)
         client_num = len(self.client_log)
-        theory_process_time = total_cpu_time / server_num
+        theory_process_time = total_cpu_time / max(server_num, 1)
         start_time, end_time = self.get_valid_period()
         actual_process_time = (end_time - start_time) * 1e3
         efficency = (theory_process_time / actual_process_time) * 1e2

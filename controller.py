@@ -11,8 +11,14 @@ from random import *
 import pickle
 import threading
 import time
+import traceback
 
-CHECK_SERVER_PERIOD = 50  # in ms
+import sys
+import os
+ 
+sys.path.insert(1, os.getcwd())
+
+CHECK_SERVER_PERIOD = 10  # in ms
 LOG_FOLDER_PATH = "/tmp/server_status/"
 log = core.getLogger()
 
@@ -24,14 +30,20 @@ class readFile(threading.Thread):
         self.server_status = server_status
 
     def updateStatus(self, ip):
+        #print("try open:", LOG_FOLDER_PATH+ip)
+        file_address = LOG_FOLDER_PATH+ip
         try:
-            f = open(LOG_FOLDER_PATH+ip, "r")
-            data = pickle.load(f)
-            cpu_usage = data.status_log[-1].cpu_usage
-            self.server_status[IPAddr(ip)] = cpu_usage
-            f.close()
+            if os.path.isfile(file_address) and os.path.getsize(file_address) > -1:
+                f = open(file_address, "rb")
+                data = pickle.load(f)
+                cpu_usage = data.status_log[-1].cpu_usage
+                self.server_status[IPAddr(ip)] = cpu_usage
+                #print("server {}, usage: {}".format(ip, cpu_usage))
+                f.close()
+                print("!server status updated: " + str(self.server_status))
         except:
-            print("status file not exist")
+            print(traceback.format_exc())
+            #print("status file not exist")
             self.server_status[IPAddr(ip)] = 0
     
 
@@ -39,7 +51,7 @@ class readFile(threading.Thread):
         while True:
             for ip in self.server_ips:
                 self.updateStatus(ip.toStr())
-            time.sleep(15)
+            time.sleep(CHECK_SERVER_PERIOD/1000)
 
 
 class Controller(EventMixin):
@@ -294,18 +306,23 @@ class Controller(EventMixin):
         else:
             log.debug("unknown packet received")
 
+def read_config_from_file():
+    contents = None
+    with open('topology.in', "r") as f:
+        contents = f.read().split()
+    client_num = int(contents[0])
+    server_num = int(contents[1])
+    return client_num, server_num
 
-def launch(servers_ip, clients_ip, monitor_ip, policy):
-    servers_ip_lst = servers_ip.replace(",", " ").split()
+def launch(policy):
+    client_num, server_num = read_config_from_file()
     s_ip_lst = []
-    clients_ip_lst = clients_ip.replace(",", " ").split()
     c_ip_lst = []
+    for i in range(client_num):
+        c_ip_lst.append(IPAddr('10.0.1.'+str(i+1)))
+    for i in range(server_num):
+        s_ip_lst.append(IPAddr('10.0.0.'+str(i+1)))
     fake_switch_ip = IPAddr("10.0.2.1")
     fake_switch_mac = EthAddr("00:00:00:00:00:11")
-    for ip in servers_ip_lst:
-        s_ip_lst.append(IPAddr(ip))
-    for ip in clients_ip_lst:
-        c_ip_lst.append(IPAddr(ip))
-
     pox.openflow.discovery.launch()
-    core.registerNew(Controller, fake_switch_ip, s_ip_lst, c_ip_lst, IPAddr(monitor_ip), fake_switch_mac, policy)
+    core.registerNew(Controller, fake_switch_ip, s_ip_lst, c_ip_lst, IPAddr('10.0.3.1'), fake_switch_mac, policy)
