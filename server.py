@@ -37,7 +37,6 @@ def get_arguments():
 
 class Server():
     def __init__(self, args):
-        print("I'm server!!!!!!!!!")
         self.read_argument(args)
         self.server_id = self.ip
         self.address = (self.ip, self.port)

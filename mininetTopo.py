@@ -13,8 +13,7 @@ MONITOR_NAME = 'monitor'
 MONITOR_IP = '10.0.3.1'
 MONITOR_CLIENT_PORT = 6000
 MONITOR_SERVER_PORT = 6001
-# FAKE_SERVER_IP = '10.0.2.1'
-FAKE_SERVER_IP = '10.0.0.1'
+FAKE_SERVER_IP = '10.0.2.1'
 SERVER_PORT = 5000
 CONTROLLER_IP = '0.0.0.0'
 
@@ -97,7 +96,6 @@ class LoadBalanceNetLauncher:
             command = "python3 client.py --client_ip {} --client_id {} --server_ip {} --server_port {} --monitor_ip {} --monitor_port {} --log INFO &".format(
                 client.IP(), client.name, self.fake_server_ip, self.server_port, self.monitor_ip, self.monitor_client_port)
             client.cmdPrint(command)
-            client.cmdPrint("ifconfig")
             time.sleep(0.01)
         pass
 

@@ -100,7 +100,7 @@ def run_a_client(args, name=""):
 
 if __name__ == '__main__':
     args = get_arguments()
-    clinet_num = 3
+    clinet_num = 1
     for i in range(clinet_num):
         name = ""
         if clinet_num > 1:

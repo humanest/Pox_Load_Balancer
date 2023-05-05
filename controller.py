@@ -13,6 +13,7 @@ import threading
 import time
 
 CHECK_SERVER_PERIOD = 50  # in ms
+LOG_FOLDER_PATH = "/tmp/server_status/"
 log = core.getLogger()
 
 
@@ -24,7 +25,7 @@ class readFile(threading.Thread):
 
     def updateStatus(self, ip):
         try:
-            f = open(ip, "r")
+            f = open(LOG_FOLDER_PATH+ip, "r")
             data = pickle.load(f)
             cpu_usage = data.status_log[-1].cpu_usage
             self.server_status[IPAddr(ip)] = cpu_usage

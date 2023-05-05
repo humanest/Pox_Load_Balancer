@@ -17,7 +17,7 @@ MONITOR_CLIENT_PORT = 6000
 MONITOR_SERVER_PORT = 6001
 LOG_START_PERCENTILE = 0.2
 LOG_END_PERCENTILE = 0.8
-REPORT_FILE_PATH = '/tmp/server_status/report.txt',
+REPORT_FILE_PATH = '/tmp/server_status/report.txt'
 
 
 def get_arguments():
