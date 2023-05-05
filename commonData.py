@@ -23,6 +23,14 @@ class Request():
     def info(self):
         return "Request(ID:{}, CPU Usage:{}, Time Usage:{})".format(self.id, self.cpu_usage, self.time_usage)
 
+    def full_info(self):
+        info = "Request(ID:{}, CPU Usage:{}, Time Usage:{}, Send Time:{}, Process Time:{}, Receive Time:{})".format(
+            self.id, self.cpu_usage, self.time_usage, self.request_send_time, self.request_process_time, self.reply_receive_time)
+        return info
+
+    def get_wait_time(self):
+        return self.request_process_time - self.request_receive_time
+
     def time_info(self):
         time_info = OrderedDict()
         time_info["request_deliver_duration"] = self.request_receive_time - \
@@ -103,7 +111,7 @@ class SenderSocket():
             logging.error(traceback.format_exc())
             return False
         return True
-    
+
     def receive(self):
         try:
             reply = self.socket.recv(1024)
@@ -112,9 +120,9 @@ class SenderSocket():
                     self.name, self.dst))
             return reply
         except:
-            logging.error(traceback.fƒormat_exc())
+            logging.error(traceback.format_exc())
             return
-        
+
     def send_and_receive(self, message):
         self.send(message)
         reply = self.receive()
