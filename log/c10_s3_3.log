@@ -1,0 +1,20 @@
+client1 request wait time (ms): min=21.05, max=70.49, median=38.75, p95=52.01, p99=52.01, mean=42.00, var=221.46
+client2 request wait time (ms): min=85.73, max=612.07, median=328.00, p95=596.24, p99=596.24, mean=357.18, var=41440.04
+client3 request wait time (ms): min=18.60, max=70.67, median=40.31, p95=52.95, p99=52.95, mean=41.13, var=217.15
+client4 request wait time (ms): min=20.15, max=53.73, median=35.35, p95=45.37, p99=45.37, mean=36.36, var=114.45
+client5 request wait time (ms): min=145.52, max=1042.88, median=717.64, p95=876.11, p99=876.11, mean=636.09, var=96927.61
+client6 request wait time (ms): min=21.63, max=70.48, median=36.94, p95=53.07, p99=53.07, mean=38.98, var=228.56
+client7 request wait time (ms): min=26.08, max=72.53, median=43.84, p95=64.39, p99=64.39, mean=45.68, var=163.34
+client8 request wait time (ms): min=8.67, max=66.43, median=35.75, p95=53.40, p99=53.40, mean=37.31, var=246.84
+client10 request wait time (ms): min=156.63, max=948.61, median=518.70, p95=664.50, p99=664.50, mean=511.07, var=61477.10
+client9 request wait time (ms): min=178.01, max=917.97, median=631.31, p95=887.48, p99=887.48, mean=638.51, var=53291.55
+
+Server 10.0.0.1 cpu usage: min=0.00, max=69.00, median=69.00, p95=69.00, p99=69.00, mean=52.00, var=647.32
+Server 10.0.0.2 cpu usage: min=61.00, max=97.00, median=91.00, p95=97.00, p99=97.00, mean=80.61, var=173.39
+Server 10.0.0.3 cpu usage: min=0.00, max=75.00, median=75.00, p95=75.00, p99=75.00, mean=56.54, var=917.16
+All server cpu usage: min=0.00, max=97.00, median=69.00, p95=97.00, p99=97.00, mean=62.99, var=736.90
+
+All request wait time (ms): min=8.67, max=1042.88, median=46.49, p95=818.01, p99=948.61, mean=203.52, var=77220.83
+All request CPU usage (%): min=8.00, max=40.00, median=29.00, p95=40.00, p99=40.00, mean=26.92, var=105.65
+All request time usage (ms): min=501.05, max=995.99, median=751.73, p95=980.96, p99=991.14, mean=760.80, var=22256.62
+Total request num=99, client num=10, server num=3, theory cpu process time=6710.39ms, actual process time=11964.26ms, efficiency=56.09%

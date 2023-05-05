@@ -10,7 +10,7 @@ from commonData import Request, SenderSocket
 
 REQUEST_CPU_USAGE_RANGE = [0, 40]  # In percentage
 REQUEST_TIME_USAGE_RANGE = [500, 1000]  # In ms
-REQUEST_SIZE = 40
+REQUEST_SIZE = 20
 SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
 MONITOR_IP = "127.0.2.1"
