@@ -10,41 +10,55 @@ net = None
 
 class TreeTopo(Topo):		
     def __init__(self):
+        self.monitor_name = 'monitor'
+        self.monitor_ip = '10.0.3.1/8'
+        self.fake_server_ip = '10.0.2.1/8'
+        self.clients = []
+        self.servers = []
+        self.monitor = None
+        self.switch = None
         Topo.__init__(self)
     
     def getContents(self, contents):
-        hosts = contents[0]
-        switch = contents[1]
-        links = contents[2]
-        linksInfo = contents[3:]
-        return hosts, switch, links, linksInfo
+        client_num = int(contents[0])
+        server_num = int(contents[1])
+        return client_num, server_num
 
     def build(self):
         # Read file contents
         f = open('topology.in',"r")
         contents = f.read().split()
-        host, switch, link, linksInfo = self.getContents(contents)
-        print("Hosts: " + host)
-        print("switch: " + switch)
-        print("links: " + link)
-        print("linksInfo: " + str(linksInfo))
-        # Add switch
-        for x in range(1, int(switch) + 1):
-            sconfig = {'dpid': "%016x" % x}
-            self.addSwitch('s%d' % x, **sconfig)
-        # Add hosts
-        for y in range(1, int(host) + 1):
-            ip = '10.0.0.%d/8' % y
-            print(ip)
-            self.addHost('h%d' % y, ip=ip)
+        client_num, server_num = self.getContents(contents)
+        host_num = client_num + server_num + 1
+        print("Hosts: ", host_num)
+        print("Switch: ", 1)
+        print("Clients: ", client_num)
+        print("Servers: ", server_num)
 
-    # Add Links
-        for x in range(int(link)):
-            info = linksInfo[x].split(',')
-            host = info[0]
-            switch = info[1]
-            bandwidth = int(info[2])
-            self.addLink(host, switch)
+        # Add switch
+        sconfig = {'dpid': "%016x" %1}
+        switch_name = 's1'
+        self.switch = self.addSwitch(switch_name, **sconfig)
+        # Add monitor
+        monitor_ip = self.monitor_ip
+        monitor_name = self.monitor_name
+        self.monitor = self.addHost(monitor_name, ip=monitor_ip)
+        self.addLink(monitor_name, switch_name)
+        print('monitor:',monitor_ip)
+        # Add clients
+        for i in range(1, client_num + 1):
+            ip = '10.0.1.{}/8'.format(i)
+            name = 'client{}'.format(i)
+            self.clients.append(self.addHost(name, ip=ip))
+            self.addLink(name, switch_name)
+            print(name, ip)
+        # Add servers
+        for i in range(1, server_num + 1):
+            ip = '10.0.0.{}/8'.format(i)
+            name = 'server{}'.format(i)
+            self.clients.append(self.addHost(name, ip=ip))
+            self.addLink(name, switch_name)
+            print(name, ip)
 
 def startNetwork():
     info('** Creating the tree network\n')
