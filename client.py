@@ -86,8 +86,6 @@ class Client():
     def generate_requests(self):
         requests = []
         for _ in range(self.request_size):
-            # cpu_usage = round(random.uniform(
-            #     self.request_cpu_usage_range[0], self.request_cpu_usage_range[1]), 2)
             cpu_usage = self.fixed_usage
             if not self.use_fix_usage:
                 cpu_usage = random.randint(

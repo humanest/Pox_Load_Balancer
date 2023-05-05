@@ -41,8 +41,6 @@ class readFile(threading.Thread):
                 self.server_status[IPAddr(ip)] = cpu_usage
                 #print("server {}, usage: {}".format(ip, cpu_usage))
                 f.close()
-        #         if ip[-1] == '3':
-        #             print("!Server {} status updated, usage {}, time:{} , current time:{}".format(ip, cpu_usage, timestamp, time.time()))
         except:
             print(traceback.format_exc())
             #print("status file not exist")

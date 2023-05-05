@@ -123,9 +123,8 @@ class Monitor():
                 else:
                     logging.info("Client {} disconnected.".format(address))
                     break
-            except Exception as e:
+            except:
                 logging.error(traceback.format_exc())
-                logging.error(e)
                 client.close()
                 return False
         self.client_out()
