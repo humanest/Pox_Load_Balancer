@@ -8,6 +8,7 @@ from pox.lib.addresses import EthAddr, IPAddr
 from pox.lib.packet.ethernet import ethernet, ETHER_BROADCAST
 from pox.lib.recoco import Timer
 from random import *
+import pickle
 import threading
 import time
 
@@ -23,8 +24,9 @@ class readFile(threading.Thread):
 
     def updateStatus(self, ip):
         f = open(ip, "r")
-        # print("reading from file {} .....".format(ip))
-        self.server_status[IPAddr(ip)] = random()
+        data = pickle.load(f)
+        cpu_usage = data.status_log[-1].cpu_usage
+        self.server_status[IPAddr(ip)] = cpu_usage
         f.close()
 
     def run(self):
@@ -35,12 +37,13 @@ class readFile(threading.Thread):
 
 
 class Controller(EventMixin):
-    def __init__(self, switch_ip, server_ips_lst, client_ips_lst, switch_mac, policy):
+    def __init__(self, switch_ip, server_ips_lst, client_ips_lst, monitor_ip, switch_mac, policy):
         self.listenTo(core.openflow)
         core.openflow_discovery.addListeners(self)
         # loadbalancing policy
         self.policy = policy
         # list of client and server ip
+        self.monitor_ip = monitor_ip
         self.server_status = {}
         self.server_ips = server_ips_lst
         self.client_ips = client_ips_lst
@@ -52,13 +55,16 @@ class Controller(EventMixin):
         for ip in self.server_ips:
             self.server_status[ip] = 0
             self.all_ip.append(ip)
+        self.all_ip.append(self.monitor_ip)
         # every packet is sent to this ip address and be modified and forwarded
         self.switch_ip = switch_ip
         self.switch_mac = switch_mac
         # ip -> mac and port table
         self.server_iptomac = {}
         self.client_iptomac = {}
-        self.run_read_usage_thread(self.server_ips, self.server_status)
+        self.monitor_macport = ()
+        if int(self.policy) == 3:
+            self.run_read_usage_thread(self.server_ips, self.server_status)
 
     def run_read_usage_thread(self, server_ips, server_status):
         thread = readFile(server_ips, server_status)
@@ -76,13 +82,13 @@ class Controller(EventMixin):
             self.index = self.index + 1
             if self.index > len(self.server_ips) - 1:
                 self.index = 0
-            print("************resourcebasedIP: " + str(ip) + "************")
+            print("************roundrobinIP: " + str(ip) + "************")
             return ip
         # resource based policy
         elif int(self.policy) == 3:
             print("server status: " + str(self.server_status))
             ip = min(self.server_status, key=self.server_status.get)
-            print("************roundrobinIP: " + str(ip) + "************")
+            print("************resourceIP: " + str(ip) + "************")
             return ip
 
     def handle_arp_packet(self, packet, connection, inport):
@@ -90,50 +96,95 @@ class Controller(EventMixin):
         dstip = packet.payload.protodst
         if packet.payload.opcode == arp.REQUEST:
             # packet is from client
-            if srcip not in self.server_ips:
-                self.client_iptomac[srcip] = (packet.src, inport)
-                if dstip == self.switch_ip:
-                    # send the arp reply packet
-                    arp_packet = arp()
-                    arp_packet.hwsrc = self.switch_mac
-                    arp_packet.hwdst = packet.src
-                    arp_packet.opcode = arp_packet.REPLY
-                    arp_packet.prototype = arp_packet.PROTO_TYPE_IP
-                    arp_packet.protosrc = packet.payload.protodst
-                    arp_packet.protodst = packet.payload.protosrc
-                    ether_packet = ethernet()
-                    ether_packet.type = ethernet.ARP_TYPE
-                    ether_packet.src = self.switch_mac
-                    ether_packet.dst = packet.src
-                    ether_packet.set_payload(arp_packet)
-                    msg = of.ofp_packet_out()
-                    msg.data = ether_packet.pack()
-                    msg.actions.append(of.ofp_action_output(port=inport))
-                    connection.send(msg)
-            else:
+            if srcip == self.monitor_ip:
+                arp_packet = arp()
                 if dstip in self.client_iptomac:
-                    client_mac = self.client_iptomac[dstip][0]
-                    arp_packet = arp()
-                    arp_packet.hwsrc = client_mac
-                    arp_packet.hwdst = packet.src
-                    arp_packet.opcode = arp_packet.REPLY
-                    arp_packet.prototype = arp_packet.PROTO_TYPE_IP
-                    arp_packet.protosrc = packet.payload.protodst
-                    arp_packet.protodst = packet.payload.protosrc
-                    ether_packet = ethernet()
-                    ether_packet.type = ethernet.ARP_TYPE
-                    ether_packet.src = client_mac
-                    ether_packet.dst = packet.src
-                    ether_packet.set_payload(arp_packet)
-                    msg = of.ofp_packet_out()
-                    msg.data = ether_packet.pack()
-                    msg.actions.append(of.ofp_action_output(port=inport))
-                    connection.send(msg)
+                    dstmac = self.client_iptomac[dstip][0]
+                elif dstip in self.server_iptomac:
+                    dstmac = self.server_iptomac[dstip][0]
+                arp_packet.hwsrc = dstmac
+                arp_packet.hwdst = self.monitor_macport[0]
+                arp_packet.opcode = arp_packet.REPLY
+                arp_packet.prototype = arp_packet.PROTO_TYPE_IP
+                arp_packet.protosrc = packet.payload.protodst
+                arp_packet.protodst = packet.payload.protosrc
+                ether_packet = ethernet()
+                ether_packet.type = ethernet.ARP_TYPE
+                ether_packet.src = dstmac
+                ether_packet.dst = self.monitor_macport[0]
+                ether_packet.set_payload(arp_packet)
+                msg = of.ofp_packet_out()
+                msg.data = ether_packet.pack()
+                msg.actions.append(of.ofp_action_output(port=inport))
+                connection.send(msg)
+            elif dstip == self.monitor_ip:
+                arp_packet = arp()
+                if srcip in self.client_iptomac:
+                    srcmac = self.client_iptomac[srcip][0]
+                elif srcip in self.server_iptomac:
+                    srcmac = self.server_iptomac[srcip][0]
+                arp_packet.hwsrc = self.monitor_macport[0]
+                arp_packet.hwdst = srcmac
+                arp_packet.opcode = arp_packet.REPLY
+                arp_packet.prototype = arp_packet.PROTO_TYPE_IP
+                arp_packet.protosrc = packet.payload.protodst
+                arp_packet.protodst = packet.payload.protosrc
+                ether_packet = ethernet()
+                ether_packet.type = ethernet.ARP_TYPE
+                ether_packet.src = self.monitor_macport[0]
+                ether_packet.dst = srcmac
+                ether_packet.set_payload(arp_packet)
+                msg = of.ofp_packet_out()
+                msg.data = ether_packet.pack()
+                msg.actions.append(of.ofp_action_output(port=inport))
+                connection.send(msg)
+            else:
+                if srcip in self.client_ips:
+                    self.client_iptomac[srcip] = (packet.src, inport)
+                    if dstip == self.switch_ip:
+                        # send the arp reply packet
+                        arp_packet = arp()
+                        arp_packet.hwsrc = self.switch_mac
+                        arp_packet.hwdst = packet.src
+                        arp_packet.opcode = arp_packet.REPLY
+                        arp_packet.prototype = arp_packet.PROTO_TYPE_IP
+                        arp_packet.protosrc = packet.payload.protodst
+                        arp_packet.protodst = packet.payload.protosrc
+                        ether_packet = ethernet()
+                        ether_packet.type = ethernet.ARP_TYPE
+                        ether_packet.src = self.switch_mac
+                        ether_packet.dst = packet.src
+                        ether_packet.set_payload(arp_packet)
+                        msg = of.ofp_packet_out()
+                        msg.data = ether_packet.pack()
+                        msg.actions.append(of.ofp_action_output(port=inport))
+                        connection.send(msg)
+                elif srcip in self.server_ips:
+                    if dstip in self.client_iptomac:
+                        client_mac = self.client_iptomac[dstip][0]
+                        arp_packet = arp()
+                        arp_packet.hwsrc = client_mac
+                        arp_packet.hwdst = packet.src
+                        arp_packet.opcode = arp_packet.REPLY
+                        arp_packet.prototype = arp_packet.PROTO_TYPE_IP
+                        arp_packet.protosrc = packet.payload.protodst
+                        arp_packet.protodst = packet.payload.protosrc
+                        ether_packet = ethernet()
+                        ether_packet.type = ethernet.ARP_TYPE
+                        ether_packet.src = client_mac
+                        ether_packet.dst = packet.src
+                        ether_packet.set_payload(arp_packet)
+                        msg = of.ofp_packet_out()
+                        msg.data = ether_packet.pack()
+                        msg.actions.append(of.ofp_action_output(port=inport))
+                        connection.send(msg)
         if packet.payload.opcode == arp.REPLY:
             if srcip in self.server_ips:
                 self.server_iptomac[srcip] = (packet.src, inport)
             if srcip in self.client_ips:
                 self.client_iptomac[srcip] = (packet.src, inport)
+            if srcip == self.monitor_ip:
+                self.monitor_macport = (packet.src, inport)
 
     def install_rule(self, connection, outport, src_ip, dst_ip, isServerToClient):
         # server to client rule
@@ -166,6 +217,19 @@ class Controller(EventMixin):
     def handle_ip_packet(self, packet, connection):
         srcip = packet.payload.srcip
         dstip = packet.payload.dstip
+        if srcip == self.monitor_ip or dstip == self.monitor_ip:
+            print(111111)
+            fm = of.ofp_flow_mod()
+            fm.match.dl_type = 0x800
+            fm.match.nw_dst = dstip
+            fm.match.nw_src = srcip
+            fm.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+            connection.send(fm)
+            msg = of.ofp_packet_out()
+            msg.data = packet
+            action = of.ofp_action_output(port=of.OFPP_FLOOD)
+            msg.actions.append(action)
+            connection.send(msg)
         # packet from client to switch
         if srcip in self.client_ips and dstip == self.switch_ip:
             msg = of.ofp_packet_out()
@@ -187,13 +251,13 @@ class Controller(EventMixin):
             packet.payload.dstip = dstip
             packet.dst = client_mac
             msg.data = packet
+            action = of.ofp_action_output(port=client_port)
             msg.actions.append(action)
             connection.send(msg)
             (server_mac, server_port) = self.server_iptomac[srcip]
             (client_mac, client_port) = self.client_iptomac[dstip]
             self.install_rule(connection, server_port, dstip, srcip, isServerToClient=False)
             self.install_rule(connection, client_port, srcip, dstip, isServerToClient=True)
-            action = of.ofp_action_output(port=client_port)
 
     def _handle_ConnectionUp(self, event):
         # send arp request packet to form the ip -> mac and port table when connection up
@@ -227,7 +291,7 @@ class Controller(EventMixin):
             log.debug("unknown packet received")
 
 
-def launch(servers_ip, clients_ip, policy):
+def launch(servers_ip, clients_ip, monitor_ip, policy):
     servers_ip_lst = servers_ip.replace(",", " ").split()
     s_ip_lst = []
     clients_ip_lst = clients_ip.replace(",", " ").split()
@@ -240,4 +304,4 @@ def launch(servers_ip, clients_ip, policy):
         c_ip_lst.append(IPAddr(ip))
 
     pox.openflow.discovery.launch()
-    core.registerNew(Controller, fake_switch_ip, s_ip_lst, c_ip_lst, fake_switch_mac, policy)
+    core.registerNew(Controller, fake_switch_ip, s_ip_lst, c_ip_lst, IPAddr(monitor_ip), fake_switch_mac, policy)
