@@ -1,3 +1,4 @@
+import argparse
 import logging
 import multiprocessing
 import os
@@ -6,7 +7,7 @@ import socket
 import time
 import traceback
 
-from commonData import SenderSocket, ServerStatus, ServerReport, set_up_log
+from commonData import SenderSocket, ServerStatus, ServerReport
 
 CPU_RESOURCE = 100  # In percentage
 CPU_IDLE_USAGE = 0  # In percentage
@@ -21,13 +22,24 @@ LOG_FREQUENCY = 10  # In ms
 LOG_BATCH = 10
 LOG_FOLDER_PATH = "/tmp/server_status/"
 
+def get_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-log', '--loglevel', default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning')
+    parser.add_argument('--server_ip', default=SERVER_IP)
+    parser.add_argument('--server_port', default=SERVER_PORT, type=int)
+    parser.add_argument('--monitor_ip', default=MONITOR_IP)
+    parser.add_argument('--monitor_port', default=MONITOR_PORT, type=int)
+    args = parser.parse_args()
+    logging.basicConfig(level=args.loglevel.upper(),filename="/tmp/server_status/server_{}.log".format(args.server_ip), filemode='w')
+    return args
+
 
 class Server():
-    def __init__(self):
-        self.host = socket.gethostname()
-        self.ip = socket.gethostbyname(self.host)
+    def __init__(self, args):
+        print("I'm server!!!!!!!!!")
+        self.read_argument(args)
         self.server_id = self.ip
-        self.port = SERVER_PORT
         self.address = (self.ip, self.port)
         self.socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)  # Use Internet, TCP
@@ -35,7 +47,7 @@ class Server():
         self.socket.bind(self.address)
 
         self.monitor_socket = SenderSocket(
-            MONITOR_IP, MONITOR_PORT, "{}-monitor".format(self.ip))
+            self.monitor_ip, self.monitor_port, "{}-monitor".format(self.ip))
         self.controller_socket = SenderSocket(
             CONTROLLER_IP, CONTROLLER_PORT, "{}-controller".format(self.ip))
         self.status_log = []
@@ -53,6 +65,12 @@ class Server():
         self.lock = multiprocessing.Lock()
         self.cpu_usage = multiprocessing.Value('d', CPU_IDLE_USAGE)
         self.cpu_condition = multiprocessing.Condition()
+
+    def read_argument(self, args):
+        self.ip = args.server_ip
+        self.port = args.server_port
+        self.monitor_ip = args.monitor_ip
+        self.monitor_port = args.monitor_port
 
     def wait_for_client(self):
         self.socket.listen(self.max_connection_number)
@@ -147,6 +165,7 @@ class Server():
 
 
 if __name__ == '__main__':
-    set_up_log()
-    server = Server()
+    print("I'm server!!!!!!!!!")
+    args = get_arguments()
+    server = Server(args)
     server.run()

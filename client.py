@@ -1,3 +1,4 @@
+import argparse
 import logging
 import multiprocessing
 import random
@@ -5,7 +6,7 @@ import socket
 import time
 import pickle
 
-from commonData import Request, SenderSocket, set_up_log
+from commonData import Request, SenderSocket
 
 REQUEST_CPU_USAGE_RANGE = [10, 20]  # In percentage
 REQUEST_TIME_USAGE_RANGE = [50, 100]  # In ms
@@ -15,24 +16,45 @@ SERVER_PORT = 5000
 MONITOR_IP = "127.0.2.1"
 MONITOR_PORT = 6000
 
+def get_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-log', '--loglevel', default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning')
+    parser.add_argument('--client_ip', default=socket.gethostbyname(socket.gethostname()))
+    parser.add_argument('--client_id', default='client')
+    parser.add_argument('--server_ip', default=SERVER_IP)
+    parser.add_argument('--server_port', default=SERVER_PORT, type=int)
+    parser.add_argument('--monitor_ip', default=MONITOR_IP)
+    parser.add_argument('--monitor_port', default=MONITOR_PORT, type=int)
+    args = parser.parse_args()
+    logging.basicConfig(level=args.loglevel.upper(), filename="/tmp/server_status/{}.log".format(args.client_id), filemode='w')
+    return args
+
 
 class Client():
-    def __init__(self, name="client"):
-        self.host = socket.gethostname()
-        self.ip = socket.gethostbyname(self.host)
-        self.client_id = name
+    def __init__(self, args, sub_name=""):
+        self.read_argument(args)
+        self.client_id += sub_name
 
         self.server_socket = SenderSocket(
-            SERVER_IP, SERVER_PORT, "{}-server".format(self.client_id))
+            self.server_ip, self.server_port, "{}-server".format(self.client_id))
 
         self.monitor_socket = SenderSocket(
-            MONITOR_IP, MONITOR_PORT, "{}-monitor".format(self.client_id))
+            self.monitor_ip, self.monitor_port, "{}-monitor".format(self.client_id))
         self.request_log = []
 
         self.request_cpu_usage_range = REQUEST_CPU_USAGE_RANGE
         self.request_time_usage_range = REQUEST_TIME_USAGE_RANGE
         self.request_size = REQUEST_SIZE
         self.request_id = 0
+
+    def read_argument(self, args):
+        self.ip = args.client_ip
+        self.client_id = args.client_id
+        self.server_ip = args.server_ip
+        self.server_port = args.server_port
+        self.monitor_ip = args.monitor_ip
+        self.monitor_port = args.monitor_port
 
     def send_requests(self, requests):
         self.server_socket.connect()
@@ -71,13 +93,16 @@ class Client():
         self.send_requests(requests)
 
 
-def run_a_client(name="client"):
-    client = Client(name)
+def run_a_client(args, name=""):
+    client = Client(args, name)
     client.run()
 
 
 if __name__ == '__main__':
-    set_up_log()
-    for i in range(20):
-        name = str(chr(65+i))
-        multiprocessing.Process(target=run_a_client, args=(name,)).start()
+    args = get_arguments()
+    clinet_num = 3
+    for i in range(clinet_num):
+        name = ""
+        if clinet_num > 1:
+            name = "-" + str(chr(65+i))
+        multiprocessing.Process(target=run_a_client, args=(args, name,)).start()

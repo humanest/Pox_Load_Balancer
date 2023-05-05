@@ -105,7 +105,7 @@ class SenderSocket():
     def send(self, message):
         try:
             self.socket.send(message)
-            logging.debug("{} sent message to {}.".format(
+            logging.info("{} sent message to {}.".format(
                 self.name, self.dst))
         except:
             logging.error(traceback.format_exc())
@@ -128,10 +128,10 @@ class SenderSocket():
         reply = self.receive()
         if reply:
             try:
-                logging.debug("{} receive reply {} from {}.".format(
+                logging.info("{} receive reply {} from {}.".format(
                     self.name, reply.decode(), self.dst))
             except (UnicodeDecodeError, AttributeError):
-                logging.debug("{} receive non-unicode reply from {}.".format(
+                logging.info("{} receive non-unicode reply from {}.".format(
                     self.name, self.dst))
         return reply
 

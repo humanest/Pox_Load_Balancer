@@ -6,9 +6,8 @@ import socket
 import time
 import traceback
 import threading
+import traceback
 
-
-from commonData import set_up_log
 
 CPU_RESOURCE = 100  # In percentage
 CPU_IDLE_USAGE = 0  # In percentage
@@ -18,6 +17,19 @@ MONITOR_CLIENT_PORT = 6000
 MONITOR_SERVER_PORT = 6001
 LOG_START_PERCENTILE = 0.2
 LOG_END_PERCENTILE = 0.8
+REPORT_FILE_PATH = '/tmp/server_status/report.txt',
+
+
+def get_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-log', '--loglevel', default='warning',
+                        help='Provide logging level. Example --loglevel debug, default=warning')
+    parser.add_argument('--monitor_ip', default=MONITOR_IP)
+    parser.add_argument('--monitor_client_port', default=MONITOR_CLIENT_PORT, type=int)
+    parser.add_argument('--monitor_server_port', default=MONITOR_SERVER_PORT, type=int)
+    args = parser.parse_args()
+    logging.basicConfig(level=args.loglevel.upper(), filename="/tmp/server_status/monitor.log", filemode='w')
+    return args
 
 
 class ListStats():
@@ -47,13 +59,11 @@ class ListStats():
 
 
 class Monitor():
-    def __init__(self):
-        self.host = socket.gethostname()
-        # self.ip = socket.gethostbyname(self.host)
-        self.ip = MONITOR_IP
+    def __init__(self, args):
+        self.reset()
+        self.read_argument(args)
         self.max_connection_number = MAX_CONNECTION_NUMBER
 
-        self.client_port = MONITOR_CLIENT_PORT
         self.client_address = (self.ip, self.client_port)
         self.client_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)  # Use Internet, TCP
@@ -61,7 +71,6 @@ class Monitor():
             socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.client_socket.bind(self.client_address)
 
-        self.server_port = MONITOR_SERVER_PORT
         self.server_address = (self.ip, self.server_port)
         self.server_socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)  # Use Internet, TCP
@@ -76,6 +85,13 @@ class Monitor():
         self.active_client_num = 0
         self.client_log = {}
         self.server_log = {}
+
+        self.results = []
+
+    def read_argument(self, args):
+        self.ip = args.monitor_ip
+        self.client_port = args.monitor_client_port
+        self.server_port = args.monitor_server_port
 
     def wait_for_client(self):
         self.client_socket.listen(self.max_connection_number)
@@ -95,6 +111,7 @@ class Monitor():
                 if client_report_data:
                     request = pickle.loads(client_report_data)
                     client_id = request.client_id
+                    logging.info("Receive report from {}, report id: {}".format(client_id, request.request_id))
                     if client_id not in self.client_log:
                         self.client_log[client_id] = []
                     self.client_log[client_id].append(request)
@@ -120,6 +137,7 @@ class Monitor():
 
     def client_out(self):
         self.active_client_num -= 1
+        logging.error("client out current client:", self.active_client_num)
         if self.active_client_num == 0:
             self.listening_time_range[1] = time.time()
             self.generate_log()
@@ -141,6 +159,7 @@ class Monitor():
                 if server_report_data:
                     server_report = pickle.loads(server_report_data)
                     server_id = server_report.server_id
+                    logging.info("Server report from {}".format(server_id))
                     if server_id not in self.server_log:
                         self.server_log[server_id] = []
                     self.server_log[server_id] += server_report.status_log
@@ -174,6 +193,7 @@ class Monitor():
                 wait_time_list.append(request.get_wait_time() * 1e3)
         stats = ListStats(wait_time_list, name)
         print(stats.get_info())
+        self.results.append(stats.get_info())
         return stats
 
     def analysis_server_log(self, status_log, name=""):
@@ -183,6 +203,7 @@ class Monitor():
                 cpu_usage_list.append(status.cpu_usage)
         stats = ListStats(cpu_usage_list, name)
         print(stats.get_info())
+        self.results.append(stats.get_info())
         return stats
 
     def analysis_effciency(self, all_request):
@@ -206,6 +227,7 @@ class Monitor():
             time_usage_list, "All request time usage (ms)")
         for stats in (wait_time_stats, cpu_usage_stats, time_usage_stats):
             print(stats.get_info())
+            self.results.append(stats.get_info())
         server_num = len(self.server_log)
         client_num = len(self.client_log)
         theory_process_time = total_cpu_time / server_num
@@ -215,28 +237,36 @@ class Monitor():
         info = "Total request num={}, client num={}, server num={}, theory cpu process time={:.2f}ms, actual process time={:.2f}ms, efficiency={:.2f}%".format(
             request_num, client_num, server_num, theory_process_time, actual_process_time, efficency)
         print(info)
+        self.results.append(info)
         return (wait_time_stats, cpu_usage_stats, time_usage_stats)
 
     def generate_log(self):
-        all_requests = []
-        for client_id, requests in self.client_log.items():
-            self.analysis_client_requests(
-                requests, "{} request wait time (ms)".format(client_id))
-            all_requests += requests
-        print()
+        try:
+            all_requests = []
+            for client_id, requests in self.client_log.items():
+                self.analysis_client_requests(
+                    requests, "{} request wait time (ms)".format(client_id))
+                all_requests += requests
+            print()
+            self.results.append('')
 
-        all_status_logs = []
-        for server_id, status_log in self.server_log.items():
-            self.analysis_server_log(
-                status_log, "Server {} cpu usage".format(server_id))
-            all_status_logs += status_log
-        self.analysis_server_log(all_status_logs, "All server cpu usage")
-        print()
+            all_status_logs = []
+            for server_id, status_log in self.server_log.items():
+                self.analysis_server_log(
+                    status_log, "Server {} cpu usage".format(server_id))
+                all_status_logs += status_log
+            self.analysis_server_log(all_status_logs, "All server cpu usage")
+            print()
+            self.results.append('')
 
-        self.analysis_effciency(all_requests)
+            self.analysis_effciency(all_requests)
 
-        print("----------------")
-        self.reset()
+            print("----------------")
+            with open(REPORT_FILE_PATH, 'w') as f:
+                for line in self.results:
+                    f.write(f"{line}\n")
+        except:
+            logging.error(traceback.format_exc())
 
     def reset(self):
         self.is_listening = False
@@ -244,6 +274,8 @@ class Monitor():
         self.active_client_num = 0
         self.client_log = {}
         self.server_log = {}
+        
+        self.results = []
 
     def run(self):
         threading.Thread(target=self.wait_for_server).start()
@@ -251,6 +283,6 @@ class Monitor():
 
 
 if __name__ == '__main__':
-    set_up_log()
-    monitor = Monitor()
+    args = get_arguments()
+    monitor = Monitor(args)
     monitor.run()
