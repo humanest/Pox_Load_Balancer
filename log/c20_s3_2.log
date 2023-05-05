@@ -1,0 +1,30 @@
+client1 request wait time (ms): min=118.99, max=874.44, median=405.80, p95=697.72, p99=697.72, mean=439.22, var=35294.89
+client2 request wait time (ms): min=84.50, max=804.30, median=227.45, p95=708.88, p99=708.88, mean=312.74, var=39299.35
+client3 request wait time (ms): min=16.55, max=83.36, median=41.81, p95=67.30, p99=72.91, mean=43.76, var=301.96
+client4 request wait time (ms): min=131.06, max=731.72, median=533.93, p95=710.70, p99=710.70, mean=480.15, var=51009.17
+client5 request wait time (ms): min=93.86, max=585.51, median=235.83, p95=555.27, p99=555.27, mean=305.10, var=22176.80
+client6 request wait time (ms): min=23.36, max=89.28, median=43.15, p95=75.34, p99=85.32, mean=48.87, var=336.88
+client7 request wait time (ms): min=111.37, max=891.12, median=499.99, p95=867.50, p99=867.50, mean=522.11, var=44842.16
+client8 request wait time (ms): min=78.89, max=718.13, median=254.61, p95=562.76, p99=562.76, mean=283.37, var=30283.00
+client9 request wait time (ms): min=12.95, max=61.26, median=39.88, p95=53.92, p99=55.95, mean=39.26, var=125.55
+client10 request wait time (ms): min=120.17, max=923.61, median=486.18, p95=818.54, p99=818.54, mean=499.57, var=54837.73
+client11 request wait time (ms): min=94.67, max=581.91, median=289.10, p95=580.31, p99=580.31, mean=296.36, var=27706.75
+client12 request wait time (ms): min=13.37, max=72.47, median=44.56, p95=57.94, p99=62.67, mean=43.65, var=161.77
+client13 request wait time (ms): min=137.97, max=781.90, median=395.88, p95=718.49, p99=718.49, mean=449.46, var=40185.31
+client14 request wait time (ms): min=31.98, max=542.10, median=194.75, p95=471.68, p99=471.68, mean=249.42, var=27991.81
+client15 request wait time (ms): min=22.07, max=89.09, median=35.91, p95=63.63, p99=64.32, mean=40.48, var=239.22
+client16 request wait time (ms): min=91.38, max=830.31, median=231.28, p95=805.84, p99=805.84, mean=363.32, var=59247.68
+client17 request wait time (ms): min=83.38, max=490.84, median=216.75, p95=486.04, p99=486.04, mean=239.88, var=16103.27
+client18 request wait time (ms): min=15.02, max=71.53, median=31.54, p95=64.86, p99=69.89, mean=39.17, var=279.48
+client19 request wait time (ms): min=115.80, max=777.64, median=407.36, p95=681.26, p99=681.26, mean=442.76, var=46493.67
+client20 request wait time (ms): min=57.54, max=397.16, median=226.52, p95=384.05, p99=390.64, mean=239.78, var=10832.66
+
+Server 10.0.0.1 cpu usage: min=59.00, max=99.00, median=87.00, p95=99.00, p99=99.00, mean=87.59, var=99.85
+Server 10.0.0.2 cpu usage: min=58.00, max=97.00, median=91.00, p95=97.00, p99=97.00, mean=88.11, var=65.22
+Server 10.0.0.3 cpu usage: min=46.00, max=82.00, median=82.00, p95=82.00, p99=82.00, mean=77.54, var=103.69
+All server cpu usage: min=46.00, max=99.00, median=82.00, p95=98.00, p99=99.00, mean=84.39, var=113.30
+
+All request wait time (ms): min=12.95, max=923.61, median=148.85, p95=676.31, p99=830.31, mean=242.89, var=50468.06
+All request CPU usage (%): min=0.00, max=35.00, median=16.00, p95=34.00, p99=35.00, mean=16.06, var=100.83
+All request time usage (ms): min=500.11, max=998.48, median=755.12, p95=973.74, p99=994.49, mean=752.28, var=19189.46
+Total request num=399, client num=20, server num=3, theory cpu process time=16103.87ms, actual process time=21528.92ms, efficiency=74.80%

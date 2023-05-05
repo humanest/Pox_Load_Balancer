@@ -96,7 +96,7 @@ class LoadBalanceNetLauncher:
             command = "python3 client.py --client_ip {} --client_id {} --server_ip {} --server_port {} --monitor_ip {} --monitor_port {} --log INFO &".format(
                 client.IP(), client.name, self.fake_server_ip, self.server_port, self.monitor_ip, self.monitor_client_port)
             client.cmdPrint(command)
-            time.sleep(0.1)
+            time.sleep(0.5)
         pass
 
     def start(self):

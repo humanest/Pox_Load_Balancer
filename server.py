@@ -18,8 +18,8 @@ MONITOR_IP = "127.0.2.1"
 MONITOR_PORT = 6001
 CONTROLLER_IP = "10.0.1.1"
 CONTROLLER_PORT = 7000
-LOG_FREQUENCY = 10  # In ms
-LOG_BATCH = 2
+LOG_FREQUENCY = 20  # In ms
+LOG_BATCH = 1
 LOG_FOLDER_PATH = "/tmp/server_status/"
 
 def get_arguments():
@@ -137,20 +137,46 @@ class Server():
         for listener_socket in [self.monitor_socket,]:
             if listener_socket.connect():
                 listener_sockets.append(listener_socket)
-
+        target_time = time.time() + self.log_frequency * 1e-3
         while True:
+            target_time += self.log_frequency * 1e-3
+            logging.error("-------------------------")
+            logging.error("Step1:{:.3f}, target time:{:.3f}".format(time.time(), target_time))
             current_status = self.get_current_status()
             self.status_log.append(current_status)
+            logging.error("Step2:{}".format(time.time()))
+            logging.error("Step3:{:.3f}".format(time.time()))
             if len(self.status_log) >= self.log_batch:
+                logging.error("Step3.1:{}".format(time.time()))
                 server_report = ServerReport(self.server_id, self.status_log)
-                message = pickle.dumps(server_report)
-                for listener_socket in listener_sockets:
-                    listener_socket.send_and_receive(message)
-                with open(self.log_tmp_file_path, 'wb') as file:
-                    pickle.dump(server_report, file)
-                os.replace(self.log_tmp_file_path, self.log_file_path)
-                self.status_log.clear()
-            time.sleep(self.log_frequency * 1e-3)
+                logging.error("Step3.2:{}".format(time.time()))
+                self.unblocking_send(listener_sockets, server_report)
+                logging.error("Step3.3:{}".format(time.time()))
+                self.blocking_write(server_report)
+                logging.error("Step3.4:{}".format(time.time()))
+                self.status_log = []
+                logging.error("Step3.5:{}".format(time.time()))
+            logging.error("Step4:{:.3f}, target time:{:.3f}".format(time.time(),target_time))
+            while time.time() < target_time:
+                time.sleep(1e-3)
+            logging.error("Step4:{:.3f}, target time:{:.3f}".format(time.time(),target_time))
+
+    def unblocking_send(self, listener_sockets, server_report):
+        message = pickle.dumps(server_report)
+        for listener_socket in listener_sockets:
+            multiprocessing.Process(target=listener_socket.send_and_receive, args=(message,)).start()
+
+    def unblocking_write(self, server_report):
+        multiprocessing.Process(target=self.blocking_write, args=(server_report,)).start()
+
+    def blocking_write(self, server_report):
+        logging.error("Want write cpu usage {} at {}".format(server_report.status_log[-1].cpu_usage, time.time()))
+        with open(self.log_tmp_file_path, 'wb') as file:
+            logging.error("Want write 1 at {}".format(time.time()))
+            pickle.dump(server_report, file)
+            logging.error("Want write 2 at {}".format(time.time()))
+        os.replace(self.log_tmp_file_path, self.log_file_path)
+        logging.error("Want write 3 at {}".format(time.time()))
 
     def get_current_status(self):
         cpu_usage = self.cpu_usage.value

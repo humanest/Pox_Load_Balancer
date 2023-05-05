@@ -8,26 +8,30 @@ import pickle
 
 from commonData import Request, SenderSocket
 
-REQUEST_CPU_USAGE_RANGE = [10, 20]  # In percentage
-REQUEST_TIME_USAGE_RANGE = [50, 100]  # In ms
+REQUEST_CPU_USAGE_RANGE = [0, 40]  # In percentage
+REQUEST_TIME_USAGE_RANGE = [500, 1000]  # In ms
 REQUEST_SIZE = 40
 SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
 MONITOR_IP = "127.0.2.1"
 MONITOR_PORT = 6000
+FIX_USAGE = True
+
 
 def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('-log', '--loglevel', default='warning',
                         help='Provide logging level. Example --loglevel debug, default=warning')
-    parser.add_argument('--client_ip', default=socket.gethostbyname(socket.gethostname()))
+    parser.add_argument(
+        '--client_ip', default=socket.gethostbyname(socket.gethostname()))
     parser.add_argument('--client_id', default='client')
     parser.add_argument('--server_ip', default=SERVER_IP)
     parser.add_argument('--server_port', default=SERVER_PORT, type=int)
     parser.add_argument('--monitor_ip', default=MONITOR_IP)
     parser.add_argument('--monitor_port', default=MONITOR_PORT, type=int)
     args = parser.parse_args()
-    logging.basicConfig(level=args.loglevel.upper(), filename="/tmp/server_status/{}.log".format(args.client_id), filemode='w')
+    logging.basicConfig(level=args.loglevel.upper(
+    ), filename="/tmp/server_status/{}.log".format(args.client_id), filemode='w')
     return args
 
 
@@ -44,6 +48,9 @@ class Client():
         self.request_log = []
 
         self.request_cpu_usage_range = REQUEST_CPU_USAGE_RANGE
+        self.use_fix_usage = FIX_USAGE
+        self.fixed_usage = random.randint(
+            self.request_cpu_usage_range[0], self.request_cpu_usage_range[1])
         self.request_time_usage_range = REQUEST_TIME_USAGE_RANGE
         self.request_size = REQUEST_SIZE
         self.request_id = 0
@@ -79,8 +86,12 @@ class Client():
     def generate_requests(self):
         requests = []
         for _ in range(self.request_size):
-            cpu_usage = round(random.uniform(
-                self.request_cpu_usage_range[0], self.request_cpu_usage_range[1]), 2)
+            # cpu_usage = round(random.uniform(
+            #     self.request_cpu_usage_range[0], self.request_cpu_usage_range[1]), 2)
+            cpu_usage = self.fixed_usage
+            if not self.use_fix_usage:
+                cpu_usage = random.randint(
+                    self.request_cpu_usage_range[0], self.request_cpu_usage_range[1])
             time_usage = round(random.uniform(
                 self.request_time_usage_range[0], self.request_time_usage_range[1]), 2)
             requests.append(
@@ -105,4 +116,5 @@ if __name__ == '__main__':
         name = ""
         if clinet_num > 1:
             name = "-" + str(chr(65+i))
-        multiprocessing.Process(target=run_a_client, args=(args, name,)).start()
+        multiprocessing.Process(target=run_a_client,
+                                args=(args, name,)).start()

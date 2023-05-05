@@ -7,7 +7,7 @@ from pox.lib.packet.ipv4 import ipv4
 from pox.lib.addresses import EthAddr, IPAddr
 from pox.lib.packet.ethernet import ethernet, ETHER_BROADCAST
 from pox.lib.recoco import Timer
-from random import *
+import random
 import pickle
 import threading
 import time
@@ -37,10 +37,12 @@ class readFile(threading.Thread):
                 f = open(file_address, "rb")
                 data = pickle.load(f)
                 cpu_usage = data.status_log[-1].cpu_usage
+                timestamp = data.status_log[-1].timestamp
                 self.server_status[IPAddr(ip)] = cpu_usage
                 #print("server {}, usage: {}".format(ip, cpu_usage))
                 f.close()
-                print("!server status updated: " + str(self.server_status))
+        #         if ip[-1] == '3':
+        #             print("!Server {} status updated, usage {}, time:{} , current time:{}".format(ip, cpu_usage, timestamp, time.time()))
         except:
             print(traceback.format_exc())
             #print("status file not exist")
@@ -91,7 +93,7 @@ class Controller(EventMixin):
     def target_server(self):
         # random policy
         if int(self.policy) == 1:
-            ip = self.server_ips[randint(1, 2)]
+            ip = random.choice(self.server_ips)
             print("************randomIP: " + str(ip) + "************")
             return ip
         # round robin policy
