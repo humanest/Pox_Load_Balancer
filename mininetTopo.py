@@ -5,7 +5,6 @@ from mininet.cli import CLI
 from mininet.topo import Topo
 from mininet.link import TCLink
 from mininet.node import RemoteController
-
 net = None
 MONITOR_NAME = 'monitor'
 MONITOR_IP = '10.0.3.1/8'
@@ -27,6 +26,7 @@ class TreeTopo(Topo):
         client_num = int(contents[0])
         server_num = int(contents[1])
         return client_num, server_num
+
 
     def build(self):
         # Read file contents
@@ -60,7 +60,7 @@ class TreeTopo(Topo):
         for i in range(1, server_num + 1):
             ip = '10.0.0.{}/8'.format(i)
             name = 'server{}'.format(i)
-            self.clients.append(self.addHost(name, ip=ip))
+            self.servers.append(self.addHost(name, ip=ip))
             self.addLink(name, switch_name)
             print(name, ip)
 

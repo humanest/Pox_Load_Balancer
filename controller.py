@@ -218,7 +218,6 @@ class Controller(EventMixin):
         srcip = packet.payload.srcip
         dstip = packet.payload.dstip
         if srcip == self.monitor_ip or dstip == self.monitor_ip:
-            print(111111)
             fm = of.ofp_flow_mod()
             fm.match.dl_type = 0x800
             fm.match.nw_dst = dstip
@@ -248,16 +247,15 @@ class Controller(EventMixin):
         # packet from server to client
         elif srcip in self.server_ips and dstip in self.client_ips:
             msg = of.ofp_packet_out()
+            (server_mac, server_port) = self.server_iptomac[srcip]
+            (client_mac, client_port) = self.client_iptomac[dstip]
+            self.install_rule(connection, server_port, dstip, srcip, isServerToClient=False)
+            self.install_rule(connection, client_port, srcip, dstip, isServerToClient=True)
             packet.payload.dstip = dstip
             packet.dst = client_mac
             msg.data = packet
             action = of.ofp_action_output(port=client_port)
             msg.actions.append(action)
-            connection.send(msg)
-            (server_mac, server_port) = self.server_iptomac[srcip]
-            (client_mac, client_port) = self.client_iptomac[dstip]
-            self.install_rule(connection, server_port, dstip, srcip, isServerToClient=False)
-            self.install_rule(connection, client_port, srcip, dstip, isServerToClient=True)
 
     def _handle_ConnectionUp(self, event):
         # send arp request packet to form the ip -> mac and port table when connection up
@@ -296,7 +294,7 @@ def launch(servers_ip, clients_ip, monitor_ip, policy):
     s_ip_lst = []
     clients_ip_lst = clients_ip.replace(",", " ").split()
     c_ip_lst = []
-    fake_switch_ip = IPAddr("10.0.0.9")
+    fake_switch_ip = IPAddr("10.0.2.1")
     fake_switch_mac = EthAddr("00:00:00:00:00:11")
     for ip in servers_ip_lst:
         s_ip_lst.append(IPAddr(ip))
