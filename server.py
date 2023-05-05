@@ -1,6 +1,6 @@
-import argparse
 import logging
 import multiprocessing
+import os
 import pickle
 import socket
 import time
@@ -17,8 +17,9 @@ MONITOR_IP = "127.0.2.1"
 MONITOR_PORT = 6001
 CONTROLLER_IP = "10.0.1.1"
 CONTROLLER_PORT = 7000
-LOG_FREQUENCY = 10 # In ms
+LOG_FREQUENCY = 10  # In ms
 LOG_BATCH = 10
+LOG_FOLDER_PATH = "/tmp/server_status/"
 
 
 class Server():
@@ -33,12 +34,16 @@ class Server():
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.address)
 
-        self.monitor_socket = SenderSocket(MONITOR_IP, MONITOR_PORT, "{}-monitor".format(self.ip))
-        self.controller_socket = SenderSocket(CONTROLLER_IP, CONTROLLER_PORT, "{}-controller".format(self.ip))
+        self.monitor_socket = SenderSocket(
+            MONITOR_IP, MONITOR_PORT, "{}-monitor".format(self.ip))
+        self.controller_socket = SenderSocket(
+            CONTROLLER_IP, CONTROLLER_PORT, "{}-controller".format(self.ip))
         self.status_log = []
         self.log_frequency = LOG_FREQUENCY
         self.log_batch = LOG_BATCH
-
+        self.log_file_path = LOG_FOLDER_PATH + self.server_id
+        if not os.path.exists(LOG_FOLDER_PATH):
+            os.makedirs(LOG_FOLDER_PATH)
 
         self.max_cpu_resource = CPU_RESOURCE
         self.max_connection_number = MAX_CONNECTION_NUMBER
@@ -65,7 +70,8 @@ class Server():
                 request_data = client.recv(1024)
                 if request_data:
                     request = pickle.loads(request_data)
-                    logging.info("Got request id: {}, added to queue".format(request.id))
+                    logging.info(
+                        "Got request id: {}, added to queue".format(request.id))
                     request.request_receive_time = time.time()
                     self.request_queue.put((request, client))
                 else:
@@ -96,7 +102,8 @@ class Server():
         while True:
             request, client = self.request_queue.get()
             while self.cpu_usage.value + request.cpu_usage > self.max_cpu_resource:
-                logging.warning("Insufficient cpu usage: {}%".format(self.cpu_usage.value))
+                logging.warning(
+                    "Insufficient cpu usage: {}%".format(self.cpu_usage.value))
                 with self.cpu_condition:
                     self.cpu_condition.wait()
             logging.info("Ready to handle request: {}, current cpu usage: {}%".format(
@@ -105,10 +112,10 @@ class Server():
                 self.cpu_usage.value += request.cpu_usage
             multiprocessing.Process(target=self.handle_request,
                                     args=(request, client)).start()
-    
+
     def generate_log_and_send(self):
         listener_sockets = []
-        for listener_socket in (self.monitor_socket, self.controller_socket):
+        for listener_socket in [self.monitor_socket,]:
             if listener_socket.connect():
                 listener_sockets.append(listener_socket)
 
@@ -120,6 +127,8 @@ class Server():
                 message = pickle.dumps(server_report)
                 for listener_socket in listener_sockets:
                     listener_socket.send_and_receive(message)
+                with open(self.log_file_path, 'wb') as file:
+                    pickle.dump(server_report, file)
                 self.status_log.clear()
             time.sleep(self.log_frequency * 1e-3)
 

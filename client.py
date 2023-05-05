@@ -1,17 +1,15 @@
-import argparse
 import logging
 import multiprocessing
 import random
 import socket
-import traceback
 import time
 import pickle
 
 from commonData import Request, ClientReport, SenderSocket, set_up_log
 
-REQUEST_CPU_USAGE_RANGE = [20, 40]  # In percentage
-REQUEST_TIME_USAGE_RANGE = [100, 200]  # In ms
-REQUEST_SIZE = 2
+REQUEST_CPU_USAGE_RANGE = [5, 10]  # In percentage
+REQUEST_TIME_USAGE_RANGE = [50, 100]  # In ms
+REQUEST_SIZE = 10
 SERVER_IP = "127.0.1.1"
 SERVER_PORT = 5000
 MONITOR_IP = "127.0.2.1"
@@ -45,7 +43,7 @@ class Client():
             request_done_data = self.server_socket.send_and_receive(message)
             request_done = pickle.loads(request_done_data)
             request_done.reply_receive_time = time.time()
-            self.request_log.append(request)
+            self.request_log.append(request_done)
             logging.info("Client {} received reply: {}, time info: {}".format(
                 self.client_id, request_done.info(), request_done.time_info()))
         self.server_socket.close()
@@ -76,7 +74,6 @@ class Client():
         requests = self.generate_requests()
         self.send_requests(requests)
         self.send_client_report("finish")
-        self.monitor_socket.close()
 
 
 def run_a_client(name="client"):
@@ -86,6 +83,6 @@ def run_a_client(name="client"):
 
 if __name__ == '__main__':
     set_up_log()
-    for i in range(2):
+    for i in range(15):
         name = str(chr(65+i))
         multiprocessing.Process(target=run_a_client, args=(name,)).start()
