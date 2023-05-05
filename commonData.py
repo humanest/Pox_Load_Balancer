@@ -76,7 +76,7 @@ class SenderSocket():
         self.dst_port = dst_port
         self.name = socket_name
         self.dst_host = socket.gethostbyname(self.dst_ip)
-        self.dst = (self.dst_host, self.dst_port)
+        self.dst = (self.dst_ip, self.dst_port)
         self.socket = socket.socket(
             socket.AF_INET, socket.SOCK_STREAM)  # Use Internet, TCP
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

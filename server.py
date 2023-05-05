@@ -51,7 +51,7 @@ class Server():
         self.request_manager = multiprocessing.Manager()
         self.request_queue = self.request_manager.Queue()
         self.lock = multiprocessing.Lock()
-        self.cpu_usage = multiprocessing.Value('i', CPU_IDLE_USAGE)
+        self.cpu_usage = multiprocessing.Value('d', CPU_IDLE_USAGE)
         self.cpu_condition = multiprocessing.Condition()
 
     def wait_for_client(self):
@@ -92,7 +92,7 @@ class Server():
         client.send(pickle.dumps(request))
         with self.cpu_usage.get_lock():
             self.cpu_usage.value -= request.cpu_usage
-        logging.info("Request {} finished, reply sent, current cpu usage: {}%".format(
+        logging.info("Request {} finished, reply sent, current cpu usage: {:.2f}%".format(
             request.id, self.cpu_usage.value))
         with self.cpu_condition:
             self.cpu_condition.notify_all()
@@ -103,10 +103,11 @@ class Server():
             request, client = self.request_queue.get()
             while self.cpu_usage.value + request.cpu_usage > self.max_cpu_resource:
                 logging.warning(
-                    "Insufficient cpu usage: {}%".format(self.cpu_usage.value))
+                    "Insufficient cpu usage: {:.2f}%, {:.2f}% more needed for request {}-{}"
+                    .format(self.cpu_usage.value, request.cpu_usage, request.client_id, request.request_id))
                 with self.cpu_condition:
                     self.cpu_condition.wait()
-            logging.info("Ready to handle request: {}, current cpu usage: {}%".format(
+            logging.info("Ready to handle request: {}, current cpu usage: {:.2f}%".format(
                 request.info(), self.cpu_usage.value))
             with self.cpu_usage.get_lock():
                 self.cpu_usage.value += request.cpu_usage
