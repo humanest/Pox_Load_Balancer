@@ -23,11 +23,16 @@ class readFile(threading.Thread):
         self.server_status = server_status
 
     def updateStatus(self, ip):
-        f = open(ip, "r")
-        data = pickle.load(f)
-        cpu_usage = data.status_log[-1].cpu_usage
-        self.server_status[IPAddr(ip)] = cpu_usage
-        f.close()
+        try:
+            f = open(ip, "r")
+            data = pickle.load(f)
+            cpu_usage = data.status_log[-1].cpu_usage
+            self.server_status[IPAddr(ip)] = cpu_usage
+            f.close()
+        except:
+            print("status file not exist")
+            self.server_status[IPAddr(ip)] = 0
+    
 
     def run(self):
         while True:
